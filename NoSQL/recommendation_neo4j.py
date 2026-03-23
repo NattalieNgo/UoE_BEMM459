@@ -371,9 +371,8 @@ def sync_to_neo4j(driver, datasets: dict[str, list[dict[str, Any]]], reset_graph
                 UNWIND $rows AS row
                 MATCH (p:Patient {patient_id: row.patient_id})
                 MATCH (d:Doctor {doctor_id: row.doctor_id})
-                MERGE (p)-[r:RATED]->(d)
-                SET r.rating = row.rating,
-                    r.review_date = datetime(row.review_date)
+                MERGE (p)-[r:RATED {review_date: datetime(row.review_date)}]->(d)
+                SET r.rating = row.rating
                 """,
                 rows=datasets["reviews"],
             )
@@ -383,8 +382,8 @@ def recommend_doctors(driver, patient_id: int, top_k: int) -> list[dict[str, Any
     db_name = os.getenv("NEO4J_DATABASE", "neo4j")
     query = """
     MATCH (p:Patient {patient_id: $patient_id})
-    OPTIONAL MATCH (p)-[:HAS_SYMPTOM]->(:Symptom)
-    WITH p, count(*) AS symptom_count
+    OPTIONAL MATCH (p)-[:HAS_SYMPTOM]->(s0:Symptom)
+    WITH p, count(s0) AS symptom_count
     WHERE symptom_count > 0
 
     MATCH (p)-[hs:HAS_SYMPTOM]->(s:Symptom)-[sg:SUGGESTS]->(sp:Specialization)<-[:SPECIALIZES_IN]-(d:Doctor)-[:AT_CLINIC]->(c:Clinic)
